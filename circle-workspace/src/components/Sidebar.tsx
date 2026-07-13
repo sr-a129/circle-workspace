@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   Home,
   Users,
@@ -25,21 +26,25 @@ export default function Sidebar() {
 
       <nav className="space-y-2">
 
-        <MenuItem icon={<Home size={18} />} text="ダッシュボード" />
+        <Link href="/">
+          <MenuItem icon={<Home size={18} />} text="ダッシュボード" />
+        </Link>
 
-        <MenuItem icon={<Users size={18} />} text="役職" />
+        <Link href="/roles">
+          <MenuItem icon={<Users size={18} />} text="役職" />
+        </Link>
 
-        <MenuItem icon={<Folder size={18} />} text="プロジェクト" />
+        <Link href="/projects">
+          <MenuItem icon={<Folder size={18} />} text="プロジェクト" />
+        </Link>
 
-        <MenuItem icon={<CheckSquare size={18} />} text="タスク" />
+        <Link href="/tasks">
+          <MenuItem icon={<CheckSquare size={18} />} text="タスク" />
+        </Link>
 
-        <MenuItem icon={<Calendar size={18} />} text="年間計画" />
-
-        <MenuItem icon={<FileText size={18} />} text="議事録" />
-
-        <MenuItem icon={<BookOpen size={18} />} text="引き継ぎ" />
-
-        <MenuItem icon={<Search size={18} />} text="検索" />
+        <Link href="/calendar">
+          <MenuItem icon={<Calendar size={18} />} text="年間計画" />
+        </Link>
 
       </nav>
 

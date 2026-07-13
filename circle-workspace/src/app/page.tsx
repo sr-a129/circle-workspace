@@ -5,7 +5,6 @@ import TaskItem from "@/components/TaskItem";
 export default function Home() {
   return (
     <main className="flex min-h-screen">
-      <Sidebar />
 
       <div className="flex-1 p-10 bg-gray-100">
         <h1 className="text-4xl font-bold">

@@ -5,7 +5,7 @@ import {
   FileText, BookOpen, Layout, HelpCircle, Search,
   ArrowLeft, X, Menu, Plus, CheckCircle2, Circle, Edit3,
   ExternalLink, Paperclip, Trash2, FolderPlus, Cloud, CloudOff,
-  Clock, MessageSquare
+  Clock, MessageSquare, Upload, Copy, Check, Download
 } from "lucide-react";
 
 // ─── Supabase Client Setup ───────────────────────────────────────────────────
@@ -33,6 +33,7 @@ interface AttachedFile {
   title: string;
   fileType: "PDF" | "Word" | "Excel/Sheets" | "その他";
   url: string;
+  isUploaded?: boolean;
 }
 
 interface Role {
@@ -66,6 +67,7 @@ interface Project {
   month: number;
   status: ProjectStatus;
   roles: string[];
+  roleTasks?: Record<string, string>; // その行事における各幹部の主な仕事
   description: string;
   handoffNotes: string;
   impressions?: string;
@@ -139,15 +141,146 @@ const INITIAL_ROLES: Role[] = [
 ];
 
 const INITIAL_PROJECTS: Project[] = [
-  { id: "shinkan", name: "新歓", month: 4, status: "completed", roles: ["kanjicho", "kikaku", "preman"], description: "新入生歓迎イベント。体験練習や説明会の運営。", handoffNotes: "", impressions: "", handoffFiles: [] },
-  { id: "tshirt", name: "Tシャツ制作", month: 5, status: "completed", roles: ["kikaku"], description: "サークルオリジナルTシャツのデザイン・サイズ集計・発注。", handoffNotes: "", impressions: "", handoffFiles: [] },
-  { id: "shinsorenspring", name: "新早連春", month: 6, status: "active", roles: ["shokai", "preman"], description: "新早稲田連合春季大会のエントリーと選手調整。", handoffNotes: "", impressions: "", handoffFiles: [] },
-  { id: "espaiospring", name: "エスパジオ春", month: 6, status: "active", roles: ["kikaku", "shokai", "kaikei"], description: "春季定期演奏会の企画・会場手配・予算管理。", handoffNotes: "", impressions: "", handoffFiles: [] },
-  { id: "summer", name: "夏合宿", month: 8, status: "planning", roles: ["kanjicho", "kaikei", "shokai", "kikaku"], description: "夏季強化合宿の宿手配・プログラム企画・会計精算。", handoffNotes: "", impressions: "", handoffFiles: [] },
-  { id: "espaifall", name: "エスパジオ秋", month: 10, status: "planning", roles: ["kikaku", "shokai", "kaikei"], description: "秋季定期演奏会の企画運営。", handoffNotes: "", impressions: "", handoffFiles: [] },
-  { id: "shinsorenfall", name: "新早連秋", month: 11, status: "planning", roles: ["shokai", "preman"], description: "新早稲田連合秋季大会の運営・参加。", handoffNotes: "", impressions: "", handoffFiles: [] },
-  { id: "ski", name: "スキースノボ合宿", month: 1, status: "planning", roles: ["kikaku", "kaikei"], description: "冬季の親睦合宿・ツアー手配。", handoffNotes: "", impressions: "", handoffFiles: [] },
-  { id: "springcamp", name: "春合宿", month: 3, status: "planning", roles: ["kanjicho", "kaikei"], description: "年度末の春季合宿および世代交代イベント。", handoffNotes: "", impressions: "", handoffFiles: [] },
+  {
+    id: "shinkan", name: "新歓", month: 4, status: "completed", roles: ["kanjicho", "kikaku", "preman"],
+    roleTasks: {
+      kanjicho: "・新歓全体の統括、予算の最終承認\n・新入生向け説明会の挨拶と全体案内",
+      kikaku: "・体験会・食事会のレクリエーション企画\n・新歓ビラ、SNS広報画像の制作",
+      preman: "・体験練習のコート/場所確保\n・新入生の体験参加人数管理とグループ分け"
+    },
+    description: "新入生歓迎イベント。体験練習や説明会の運営。", handoffNotes: "", impressions: "", handoffFiles: []
+  },
+  {
+    id: "tshirt", name: "Tシャツ制作", month: 5, status: "completed", roles: ["kikaku", "kaikei"],
+    roleTasks: {
+      kikaku: "・デザイン案の募集と決定\n・全メンバーのサイズ・枚数アンケート集計と業者発注",
+      kaikei: "・Tシャツ代金の集金管理\n・制作業者への振込処理"
+    },
+    description: "サークルオリジナルTシャツのデザイン・サイズ集計・発注。", handoffNotes: "", impressions: "", handoffFiles: []
+  },
+  {
+    id: "shinsorenspring", name: "新早連春", month: 6, status: "active", roles: ["shokai", "preman"],
+    roleTasks: {
+      shokai: "・連盟へのエントリー書類提出\n・他大学・運営側との連絡窓口",
+      preman: "・出場メンバーの登録・オーダー編成\n・当日の試合進行管理"
+    },
+    description: "新早稲田連合春季大会のエントリーと選手調整。", handoffNotes: "", impressions: "", handoffFiles: []
+  },
+  {
+    id: "espaiospring", name: "エスパジオ春", month: 6, status: "active", roles: ["kikaku", "shokai", "kaikei"],
+    roleTasks: {
+      kikaku: "・当日のタイムスケジュール作成\n・プログラム・演出企画",
+      shokai: "・会場ホールの予約と機材打ち合わせ",
+      kaikei: "・チケット売上管理と会場費精算"
+    },
+    description: "春季定期イベントの企画・会場手配・予算管理。", handoffNotes: "", impressions: "", handoffFiles: []
+  },
+  {
+    id: "summer", name: "夏合宿", month: 8, status: "planning", roles: ["kanjicho", "kaikei", "shokai", "kikaku"],
+    roleTasks: {
+      kanjicho: "・合宿全体の総指揮、緊急時対応",
+      shokai: "・宿舎と貸切バスの予約・人数確定連絡",
+      kikaku: "・夜のレク・コンパ・花火などのイベント企画",
+      kaikei: "・合宿費の徴収、宿・バス代金の精算"
+    },
+    description: "夏季合宿の宿手配・プログラム企画・会計精算。", handoffNotes: "", impressions: "", handoffFiles: []
+  },
+  { id: "espaifall", name: "エスパジオ秋", month: 10, status: "planning", roles: ["kikaku", "shokai", "kaikei"], roleTasks: {}, description: "秋季イベントの企画運営。", handoffNotes: "", impressions: "", handoffFiles: [] },
+  { id: "shinsorenfall", name: "新早連秋", month: 11, status: "planning", roles: ["shokai", "preman"], roleTasks: {}, description: "新早稲田連合秋季大会の運営・参加。", handoffNotes: "", impressions: "", handoffFiles: [] },
+  { id: "ski", name: "スキースノボ合宿", month: 1, status: "planning", roles: ["kikaku", "kaikei"], roleTasks: {}, description: "冬季の親睦合宿・ツアー手配。", handoffNotes: "", impressions: "", handoffFiles: [] },
+  { id: "springcamp", name: "春合宿", month: 3, status: "planning", roles: ["kanjicho", "kaikei"], roleTasks: {}, description: "年度末の春季合宿および世代交代イベント。", handoffNotes: "", impressions: "", handoffFiles: [] },
+];
+
+const TEMPLATES_DATA = [
+  {
+    title: "📝 幹事会議・実行委員会 議事録テンプレート",
+    desc: "毎回のミーティングでそのままコピーして使える議事録フォーマットです。",
+    content: `【会議名】第◯回 〇〇実行委員会ミーティング
+【日時】2026年◯月◯日（◯） 20:00〜21:00
+【参加者】山田、佐藤、鈴木...
+【欠席者】なし
+
+■ 1. 前回からの進捗報告
+・（役職名）：〇〇の予約完了
+・（役職名）：〇〇の見積もり取得済み
+
+■ 2. 今回の議題・決定事項
+1. 〇〇について
+ → 決定：〇〇案で進める。予算上限は◯万円とする。
+2. 〇〇について
+ → 決定：◯月◯日までに全体LINEでアンケートを取る。
+
+■ 3. 次回までのタスク（宿題）
+・[担当：〇〇] 〇〇の手配（期限：◯/◯）
+・[担当：〇〇] 〇〇の資料作成（期限：◯/◯）
+
+■ 4. 次回ミーティング予定
+2026年◯月◯日（◯） 20:00〜`
+  },
+  {
+    title: "📖 行事・役職 引き継ぎ書テンプレート",
+    desc: "来年度の幹部へノウハウと注意点を残すためのテンプレートです。",
+    content: `【行事名 / 役職名】〇〇
+【担当者】〇〇、〇〇
+
+■ 1. 全体のスケジュール感（いつ何をやるか）
+・3ヶ月前：会場・宿の仮押さえ
+・2ヶ月前：参加者募集開始、予算案作成
+・1ヶ月前：人数確定、業者への最終連絡
+・1週間前：しおり配布、持ち物リマインド
+・終了後1週間以内：会計精算、領収書提出
+
+■ 2. 取引先・連絡先情報
+・業者/会場名：〇〇
+・担当者/連絡先：03-XXXX-XXXX / xxxx@example.com
+・備考：例年「〇〇サークルの件」と伝えるとスムーズです。
+
+■ 3. 特に気をつけるべき注意点（失敗談・トラブル防止）
+・〇〇の締め切りは厳守すること（過ぎるとキャンセル料が発生します）
+・〇〇の備品は部室にないので事前購入が必要
+
+■ 4. 今年の振り返り・改善提案
+・〇〇の企画は非常に好評だったため来年も継続推奨。`
+  },
+  {
+    title: "💰 イベント予算・精算報告書テンプレート",
+    desc: "会計担当への提出やイベント後の収支報告に使えるフォーマットです。",
+    content: `【イベント名】〇〇
+【作成日】2026年◯月◯日
+【作成者】〇〇
+
+■ 収入の部
+・参加費徴収（◯円 × ◯名）：◯◯,◯◯◯円
+・サークル会計からの補助：◯◯,◯◯◯円
+【収入合計】：◯◯,◯◯◯円
+
+■ 支出の部
+・会場/宿泊費：◯◯,◯◯◯円
+・交通費/レンタカー代：◯◯,◯◯◯円
+・備品/景品代：◯◯,◯◯◯円
+・雑費：◯◯,◯◯◯円
+【支出合計】：◯◯,◯◯◯円
+
+■ 収支差額（収入 − 支出）
+＋◯,◯◯◯円（※余剰金はサークル口座へ返金済み / 領収書別添）`
+  },
+  {
+    title: "📢 全体LINE・参加者向け案内文テンプレート",
+    desc: "サークルメンバーへの出欠確認やイベント告知に使える文面です。",
+    content: `【〇〇のお知らせ📢】
+お疲れ様です！〇〇担当の〇〇です。
+今年も「〇〇」を開催します！以下の詳細を確認して回答をお願いします👇
+
+■ 日程：2026年◯月◯日（◯）
+■ 場所：〇〇（集合：◯時◯分 〇〇駅）
+■ 参加費：◯,◯◯◯円（当日現金払い / PayPay）
+■ 持ち物：動きやすい服、飲み物、保険証
+
+▼ 参加回答フォームはこちら（期限：◯月◯日 23:59まで）
+https://forms.gle/xxxxxx
+
+質問がある人は〇〇まで気軽に連絡してください！たくさんの参加待ってます🙌`
+  }
 ];
 
 const DEFAULT_DATASET: YearDataset = {
@@ -175,17 +308,19 @@ function getDaysDiff(iso: string) {
   return Math.floor((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 }
 
+function detectFileType(filename: string): AttachedFile["fileType"] {
+  const lower = filename.toLowerCase();
+  if (lower.endsWith(".pdf")) return "PDF";
+  if (lower.endsWith(".doc") || lower.endsWith(".docx")) return "Word";
+  if (lower.endsWith(".xls") || lower.endsWith(".xlsx") || lower.endsWith(".csv")) return "Excel/Sheets";
+  return "その他";
+}
+
 const STATUS_CFG: Record<TaskStatus, { label: string; bg: string; text: string; border: string }> = {
   todo: { label: "未着手", bg: "bg-slate-100", text: "text-slate-700", border: "border-slate-300" },
   "in-progress": { label: "進行中", bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-300" },
   completed: { label: "完了", bg: "bg-green-50", text: "text-green-700", border: "border-green-300" },
   overdue: { label: "期限超過", bg: "bg-red-50", text: "text-red-700", border: "border-red-300" },
-};
-
-const PRIORITY_CFG: Record<TaskPriority, { label: string; color: string }> = {
-  high: { label: "高", color: "text-red-600" },
-  medium: { label: "中", color: "text-amber-600" },
-  low: { label: "低", color: "text-slate-400" },
 };
 
 const PROJECT_STATUS_CFG: Record<ProjectStatus, { label: string; bg: string; text: string }> = {
@@ -203,10 +338,10 @@ const FILE_BADGE_CFG: Record<AttachedFile["fileType"], string> = {
 
 const MONTHS_NUM = [4, 5, 6, 7, 8, 9, 10, 11, 12, 1, 2, 3];
 
-// ─── Reusable File Attachment Component ──────────────────────────────────────
+// ─── File Upload & Link Attachment Component ─────────────────────────────────
 
 function FilesAttachmentSection({
-  title = "関連ファイル・共有リンク（Word / PDF / Googleドライブ）",
+  title = "関連ファイル（直接アップロード / 共有リンク）",
   files,
   onAddFile,
   onDeleteFile,
@@ -218,43 +353,125 @@ function FilesAttachmentSection({
   onDeleteFile: (id: string) => void;
   compact?: boolean;
 }) {
-  const [isAdding, setIsAdding] = useState(false);
+  const [mode, setMode] = useState<"none" | "upload" | "link">("none");
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  // リンク登録用ステート
   const [fileTitle, setFileTitle] = useState("");
   const [fileType, setFileType] = useState<AttachedFile["fileType"]>("PDF");
   const [url, setUrl] = useState("");
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    setUploadError(null);
+
+    try {
+      const ext = file.name.split(".").pop() || "bin";
+      const safePath = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+      const { error } = await supabase.storage
+        .from("circle-files")
+        .upload(safePath, file);
+
+      if (error) {
+        throw error;
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from("circle-files")
+        .getPublicUrl(safePath);
+
+      onAddFile({
+        title: file.name,
+        fileType: detectFileType(file.name),
+        url: publicUrlData.publicUrl,
+        isUploaded: true,
+      });
+      setMode("none");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "アップロードに失敗しました";
+      setUploadError(
+        `アップロードエラー: ${msg}（※SupabaseのStorageで「circle-files」バケットをPublicで作成しているか確認してください）`
+      );
+    } finally {
+      setIsUploading(false);
+    }
+  }
+
+  function handleLinkSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!fileTitle.trim() || !url.trim()) return;
-    onAddFile({ title: fileTitle.trim(), fileType, url: url.trim() });
+    onAddFile({ title: fileTitle.trim(), fileType, url: url.trim(), isUploaded: false });
     setFileTitle("");
     setUrl("");
-    setIsAdding(false);
+    setMode("none");
   }
 
   return (
     <div className={`${compact ? "p-3 bg-slate-50/80" : "p-4 bg-slate-50"} border border-slate-200 rounded-xl space-y-2.5`}>
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
           <Paperclip size={13} className="text-indigo-600 flex-shrink-0" />
           <span>{title}</span>
         </div>
-        {!isAdding && (
-          <button
-            type="button"
-            onClick={() => setIsAdding(true)}
-            className="text-xs bg-white border border-slate-200 hover:border-indigo-300 text-indigo-600 px-2.5 py-1 rounded-lg font-medium flex items-center gap-1 transition-colors flex-shrink-0"
-          >
-            <Plus size={12} /> ファイル追加
-          </button>
+        {mode === "none" && (
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => { setUploadError(null); setMode("upload"); }}
+              className="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded-lg font-medium flex items-center gap-1 transition-colors"
+            >
+              <Upload size={12} /> ファイルをアップロード
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("link")}
+              className="text-xs bg-white border border-slate-200 hover:border-indigo-300 text-slate-700 px-2.5 py-1 rounded-lg font-medium flex items-center gap-1 transition-colors"
+            >
+              <ExternalLink size={12} /> URLリンク追加
+            </button>
+          </div>
         )}
       </div>
 
-      {isAdding && (
-        <form onSubmit={handleSubmit} className="bg-white border border-indigo-200 rounded-xl p-3 space-y-2.5">
+      {/* ファイル直接アップロードフォーム */}
+      {mode === "upload" && (
+        <div className="bg-white border border-indigo-200 rounded-xl p-3.5 space-y-2.5">
+          <div className="flex justify-between items-center">
+            <span className="text-xs font-bold text-slate-800">端末からファイルを選択して永続保存</span>
+            <button type="button" onClick={() => setMode("none")} className="text-slate-400 hover:text-slate-600"><X size={14} /></button>
+          </div>
+          <label className="flex flex-col items-center justify-center border-2 border-dashed border-indigo-200 hover:border-indigo-400 rounded-xl p-4 cursor-pointer bg-indigo-50/30 transition-colors">
+            <Upload size={20} className="text-indigo-600 mb-1" />
+            <span className="text-xs font-semibold text-indigo-700">
+              {isUploading ? "アップロード中...そのままお待ちください" : "クリックしてファイルを選択（Word / PDF / Excel 等）"}
+            </span>
+            <span className="text-[11px] text-slate-400 mt-0.5">保存されたファイルはメンバー全員がいつでもダウンロードできます</span>
+            <input
+              type="file"
+              onChange={handleFileUpload}
+              disabled={isUploading}
+              className="hidden"
+            />
+          </label>
+          {uploadError && (
+            <div className="text-[11px] text-red-600 bg-red-50 border border-red-200 rounded-lg p-2">
+              {uploadError}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* URLリンク追加フォーム */}
+      {mode === "link" && (
+        <form onSubmit={handleLinkSubmit} className="bg-white border border-indigo-200 rounded-xl p-3 space-y-2.5">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <div className="sm:col-span-2">
-              <label className="block text-[11px] text-slate-500 mb-1">ファイル名</label>
+              <label className="block text-[11px] text-slate-500 mb-1">資料名</label>
               <input
                 type="text"
                 value={fileTitle}
@@ -279,7 +496,7 @@ function FilesAttachmentSection({
             </div>
           </div>
           <div>
-            <label className="block text-[11px] text-slate-500 mb-1">共有URL（Googleドライブ・OneDrive・Boxなど）</label>
+            <label className="block text-[11px] text-slate-500 mb-1">共有URL</label>
             <input
               type="url"
               value={url}
@@ -290,18 +507,19 @@ function FilesAttachmentSection({
             />
           </div>
           <div className="flex justify-end gap-2 pt-1">
-            <button type="button" onClick={() => setIsAdding(false)} className="px-3 py-1 text-xs text-slate-500 bg-slate-100 rounded-lg">キャンセル</button>
+            <button type="button" onClick={() => setMode("none")} className="px-3 py-1 text-xs text-slate-500 bg-slate-100 rounded-lg">キャンセル</button>
             <button type="submit" className="px-3 py-1 text-xs text-white bg-indigo-600 rounded-lg font-medium">登録</button>
           </div>
         </form>
       )}
 
+      {/* 保存済みファイル一覧 */}
       {files.length === 0 ? (
-        <p className="text-[11px] text-slate-400">添付ファイルはありません。</p>
+        <p className="text-[11px] text-slate-400">保存されているファイルはありません。</p>
       ) : (
         <div className="space-y-1.5">
           {files.map((f) => (
-            <div key={f.id} className="flex items-center justify-between bg-white border border-slate-200 rounded-lg px-3 py-1.5">
+            <div key={f.id} className="flex items-center justify-between bg-white border border-slate-200 rounded-lg px-3 py-2">
               <a
                 href={f.url}
                 target="_blank"
@@ -309,10 +527,13 @@ function FilesAttachmentSection({
                 className="flex items-center gap-2 text-xs font-medium text-slate-800 hover:text-indigo-600 truncate"
               >
                 <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${FILE_BADGE_CFG[f.fileType]}`}>{f.fileType}</span>
+                {f.isUploaded && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-medium">保存済み</span>
+                )}
                 <span className="truncate">{f.title}</span>
-                <ExternalLink size={12} className="text-slate-400 flex-shrink-0" />
+                {f.isUploaded ? <Download size={12} className="text-indigo-500 flex-shrink-0" /> : <ExternalLink size={12} className="text-slate-400 flex-shrink-0" />}
               </a>
-              <button type="button" onClick={() => onDeleteFile(f.id)} className="text-slate-300 hover:text-red-500 p-1">
+              <button type="button" onClick={() => onDeleteFile(f.id)} className="text-slate-300 hover:text-red-500 p-1" title="削除">
                 <Trash2 size={13} />
               </button>
             </div>
@@ -393,7 +614,8 @@ function Sidebar({
 
         {[
           { id: "minutes", label: "議事録一覧", Icon: FileText },
-          { id: "handoff", label: "引き継ぎ一覧", Icon: BookOpen },
+          { id: "handoff", label: "引き継ぎ・感想一覧", Icon: BookOpen },
+          { id: "templates", label: "テンプレート", Icon: Layout },
           { id: "search", label: "全体検索", Icon: Search },
         ].map(({ id, label, Icon }) => (
           <button
@@ -521,15 +743,16 @@ export default function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // ─── Task Modal States ─────────────────────────────────────────────────────
+  // ─── Task Add / Edit Modal States ──────────────────────────────────────────
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
-  const [newTaskTitle, setNewTaskTitle] = useState("");
-  const [newTaskDesc, setNewTaskDesc] = useState("");
-  const [newTaskProject, setNewTaskProject] = useState<string>("");
-  const [newTaskRoles, setNewTaskRoles] = useState<string[]>(["kanjicho"]);
-  const [newTaskAssignee, setNewTaskAssignee] = useState("");
-  const [newTaskDeadline, setNewTaskDeadline] = useState(getTodayISO());
-  const [newTaskPriority, setNewTaskPriority] = useState<TaskPriority>("medium");
+  const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
+  const [taskTitle, setTaskTitle] = useState("");
+  const [taskDesc, setTaskDesc] = useState("");
+  const [taskProject, setTaskProject] = useState<string>("");
+  const [taskRoles, setTaskRoles] = useState<string[]>(["kanjicho"]);
+  const [taskAssignee, setTaskAssignee] = useState("");
+  const [taskDeadline, setTaskDeadline] = useState(getTodayISO());
+  const [taskStatus, setTaskStatus] = useState<TaskStatus>("todo");
 
   // ─── Project Modal States ──────────────────────────────────────────────────
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
@@ -539,6 +762,7 @@ export default function App() {
   const [newProjRoles, setNewProjRoles] = useState<string[]>(["kanjicho"]);
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
 
   function handleNavigate(v: View, id?: string) {
     setView(v);
@@ -546,30 +770,43 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  function openTaskModalWithContext(opts?: { roleId?: string; projectId?: string }) {
-    setNewTaskTitle("");
-    setNewTaskDesc("");
-    setNewTaskDeadline(getTodayISO());
-    setNewTaskPriority("medium");
+  function openNewTaskModal(opts?: { roleId?: string; projectId?: string }) {
+    setEditingTaskId(null);
+    setTaskTitle("");
+    setTaskDesc("");
+    setTaskDeadline(getTodayISO());
+    setTaskStatus("todo");
 
     if (opts?.projectId) {
-      setNewTaskProject(opts.projectId);
+      setTaskProject(opts.projectId);
       const pObj = projects.find((p) => p.id === opts.projectId);
       if (pObj && pObj.roles.length > 0) {
-        setNewTaskRoles(pObj.roles);
+        setTaskRoles(pObj.roles);
       }
     } else {
-      setNewTaskProject("");
+      setTaskProject("");
     }
 
     if (opts?.roleId) {
-      setNewTaskRoles([opts.roleId]);
+      setTaskRoles([opts.roleId]);
       const rObj = roles.find((r) => r.id === opts.roleId);
-      if (rObj?.members[0]) setNewTaskAssignee(rObj.members[0]);
+      if (rObj?.members[0]) setTaskAssignee(rObj.members[0]);
     } else if (!opts?.projectId) {
-      setNewTaskRoles(["kanjicho"]);
-      setNewTaskAssignee("");
+      setTaskRoles(["kanjicho"]);
+      setTaskAssignee("");
     }
+    setIsTaskModalOpen(true);
+  }
+
+  function openEditTaskModal(task: Task) {
+    setEditingTaskId(task.id);
+    setTaskTitle(task.title);
+    setTaskDesc(task.description || "");
+    setTaskProject(task.project || "");
+    setTaskRoles(task.roles || []);
+    setTaskAssignee(task.assignee === "未定" ? "" : task.assignee);
+    setTaskDeadline(task.deadline || getTodayISO());
+    setTaskStatus(task.status);
     setIsTaskModalOpen(true);
   }
 
@@ -596,28 +833,51 @@ export default function App() {
     }));
   }
 
-  async function handleAddTask(e: React.FormEvent) {
+  async function handleSaveTask(e: React.FormEvent) {
     e.preventDefault();
-    if (!newTaskTitle.trim()) return;
+    if (!taskTitle.trim()) return;
 
-    const newTask: Task = {
-      id: Date.now(),
-      title: newTaskTitle.trim(),
-      description: newTaskDesc.trim(),
-      project: newTaskProject || null,
-      roles: newTaskRoles.length > 0 ? newTaskRoles : ["kanjicho"],
-      assignee: newTaskAssignee.trim() || "未定",
-      deadline: newTaskDeadline,
-      priority: newTaskPriority,
-      status: "todo",
-    };
+    if (editingTaskId !== null) {
+      // 既存タスクの更新
+      await updateCurrentYearData((prev) => ({
+        ...prev,
+        tasks: prev.tasks.map((t) =>
+          t.id === editingTaskId
+            ? {
+              ...t,
+              title: taskTitle.trim(),
+              description: taskDesc.trim(),
+              project: taskProject || null,
+              roles: taskRoles.length > 0 ? taskRoles : ["kanjicho"],
+              assignee: taskAssignee.trim() || "未定",
+              deadline: taskDeadline,
+              status: taskStatus,
+            }
+            : t
+        ),
+      }));
+    } else {
+      // 新規タスク追加
+      const newTask: Task = {
+        id: Date.now(),
+        title: taskTitle.trim(),
+        description: taskDesc.trim(),
+        project: taskProject || null,
+        roles: taskRoles.length > 0 ? taskRoles : ["kanjicho"],
+        assignee: taskAssignee.trim() || "未定",
+        deadline: taskDeadline,
+        priority: "medium",
+        status: taskStatus,
+      };
 
-    await updateCurrentYearData((prev) => ({
-      ...prev,
-      tasks: [newTask, ...prev.tasks],
-    }));
+      await updateCurrentYearData((prev) => ({
+        ...prev,
+        tasks: [newTask, ...prev.tasks],
+      }));
+    }
 
     setIsTaskModalOpen(false);
+    setEditingTaskId(null);
   }
 
   async function handleAddProject(e: React.FormEvent) {
@@ -630,6 +890,7 @@ export default function App() {
       month: newProjMonth,
       status: "planning",
       roles: newProjRoles,
+      roleTasks: {},
       description: newProjDesc.trim(),
       handoffNotes: "",
       impressions: "",
@@ -658,7 +919,7 @@ export default function App() {
     );
   }
 
-  // ─── Reusable Task Card Component ──────────────────────────────────────────
+  // ─── Reusable Task Card Component (編集ボタン付き) ──────────────────────────
 
   function TaskItemCard({ task }: { task: Task }) {
     const sc = STATUS_CFG[task.status];
@@ -677,11 +938,9 @@ export default function App() {
 
           <div className="flex-1 min-w-0 space-y-1">
             <div className="flex flex-wrap items-center gap-1.5">
-              {/* 行事ラベル */}
               <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700">
                 📅 {getProjectName(task.project)}
               </span>
-              {/* 関係幹部ラベル */}
               {task.roles.map((rId) => {
                 const rObj = roles.find((r) => r.id === rId);
                 return (
@@ -711,8 +970,8 @@ export default function App() {
           </div>
         </div>
 
-        {/* ステータス直接切り替えドロップダウン＆削除 */}
-        <div className="flex items-center gap-2 self-end sm:self-center flex-shrink-0">
+        {/* ステータス切り替え＆編集・削除ボタン */}
+        <div className="flex items-center gap-1.5 self-end sm:self-center flex-shrink-0">
           <select
             value={task.status}
             onChange={(e) => changeTaskStatus(task.id, e.target.value as TaskStatus)}
@@ -723,6 +982,13 @@ export default function App() {
             <option value="completed">完了</option>
             <option value="overdue">期限超過</option>
           </select>
+          <button
+            onClick={() => openEditTaskModal(task)}
+            className="text-slate-400 hover:text-indigo-600 p-1.5 rounded-lg hover:bg-indigo-50 transition-colors"
+            title="タスク内容を編集"
+          >
+            <Edit3 size={14} />
+          </button>
           <button
             onClick={() => deleteTask(task.id)}
             className="text-slate-300 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 transition-colors"
@@ -760,7 +1026,7 @@ export default function App() {
               <FolderPlus size={16} className="text-indigo-600" /> 行事追加
             </button>
             <button
-              onClick={() => openTaskModalWithContext()}
+              onClick={() => openNewTaskModal()}
               className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-1.5 shadow-sm"
             >
               <Plus size={16} /> タスク追加
@@ -787,7 +1053,7 @@ export default function App() {
           <div className="md:col-span-2">
             <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
               <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-                <h2 className="font-semibold text-sm">期限の近いタスク（ステータス変更可能）</h2>
+                <h2 className="font-semibold text-sm">期限の近いタスク（編集・ステータス変更可能）</h2>
                 <button onClick={() => handleNavigate("tasks")} className="text-xs text-indigo-600 hover:underline">全て見る</button>
               </div>
               <div className="divide-y divide-slate-100">
@@ -866,14 +1132,13 @@ export default function App() {
         <div className="mb-6 flex flex-wrap justify-between items-center gap-3">
           <div>
             <h1 className="text-2xl font-semibold">タスク管理</h1>
-            <p className="text-slate-500 text-sm">右側のステータス欄から「未着手・進行中・完了」をいつでも切り替えられます。</p>
+            <p className="text-slate-500 text-sm">右側のドロップダウンでステータス変更、✏️ボタンでタイトル・詳細・関係幹部の編集ができます。</p>
           </div>
-          <button onClick={() => openTaskModalWithContext()} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-1.5 shadow-sm">
+          <button onClick={() => openNewTaskModal()} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-1.5 shadow-sm">
             <Plus size={16} /> 新規タスク追加
           </button>
         </div>
 
-        {/* 絞り込みフィルターバー */}
         <div className="bg-white border border-slate-200 rounded-2xl p-3.5 mb-5 flex flex-wrap items-center gap-2.5 shadow-sm">
           <div className="flex flex-wrap gap-1">
             {[
@@ -935,7 +1200,7 @@ export default function App() {
     );
   }
 
-  // ─── Project Detail View (大幅に機能拡張) ─────────────────────────────────
+  // ─── Project Detail View ───────────────────────────────────────────────────
 
   function ProjectDetailView({ projectId }: { projectId: string }) {
     const project = projects.find((p) => p.id === projectId);
@@ -948,6 +1213,10 @@ export default function App() {
     const [editStatus, setEditStatus] = useState<ProjectStatus>("planning");
     const [editDesc, setEditDesc] = useState("");
     const [editRoles, setEditRoles] = useState<string[]>([]);
+
+    // 「その行事における各幹部の主な仕事」の編集状態
+    const [editingRoleTaskId, setEditingRoleTaskId] = useState<string | null>(null);
+    const [editRoleTaskText, setEditRoleTaskText] = useState("");
 
     // 議事録追加状態（プロジェクト専用）
     const [isAddingMin, setIsAddingMin] = useState(false);
@@ -991,6 +1260,24 @@ export default function App() {
         ),
       }));
       setIsEditingProj(false);
+    }
+
+    async function handleSaveRoleTaskInProject(roleId: string) {
+      await updateCurrentYearData((prev) => ({
+        ...prev,
+        projects: prev.projects.map((p) =>
+          p.id === project!.id
+            ? {
+              ...p,
+              roleTasks: {
+                ...(p.roleTasks || {}),
+                [roleId]: editRoleTaskText.trim(),
+              },
+            }
+            : p
+        ),
+      }));
+      setEditingRoleTaskId(null);
     }
 
     async function handleDeleteProject() {
@@ -1185,7 +1472,7 @@ export default function App() {
         {/* タブ切り替え */}
         <div className="flex flex-wrap gap-2 mb-6 border-b border-slate-200">
           {[
-            { id: "overview", label: "関係幹部・主な仕事" },
+            { id: "overview", label: "この行事での各幹部の役割" },
             { id: "tasks", label: `タスク (${projectTasks.length})` },
             { id: "minutes", label: `議事録・会議資料 (${projectMinutes.length})` },
             { id: "handoff", label: "引き継ぎ資料・感想" },
@@ -1201,13 +1488,16 @@ export default function App() {
           ))}
         </div>
 
-        {/* TAB 1: 関係幹部と各幹部の主な仕事 */}
+        {/* TAB 1: その行事における関係幹部ごとの主な仕事（個別編集可能） */}
         {tab === "overview" && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold text-slate-800">関係幹部とそれぞれの主な仕事</h2>
-              <button onClick={() => setIsEditingProj(true)} className="text-xs text-indigo-600 hover:underline">
-                + 関係幹部を変更する
+              <div>
+                <h2 className="text-base font-bold text-slate-800">「{project.name}」における関係幹部の主な仕事</h2>
+                <p className="text-xs text-slate-500">各幹部カードの「役割を編集」から、この行事固有の担当業務を書き込めます。</p>
+              </div>
+              <button onClick={() => setIsEditingProj(true)} className="text-xs text-indigo-600 hover:underline flex-shrink-0">
+                + 関係幹部を追加・変更
               </button>
             </div>
 
@@ -1217,34 +1507,90 @@ export default function App() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {involvedRoles.map((r) => (
-                  <div key={r.id} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col justify-between">
-                    <div>
-                      <div className="flex items-center justify-between mb-3 pb-2.5 border-b border-slate-100">
-                        <div className="flex items-center gap-2.5">
-                          <span className="text-2xl">{r.emoji}</span>
-                          <div>
-                            <div className="font-bold text-sm text-slate-900">{r.name}</div>
-                            <div className="text-xs text-indigo-600 font-medium">担当: {formatMembers(r.members)}</div>
+                {involvedRoles.map((r) => {
+                  const specificTaskText = project.roleTasks?.[r.id] || "";
+                  const isEditingThis = editingRoleTaskId === r.id;
+
+                  return (
+                    <div key={r.id} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center justify-between mb-3 pb-2.5 border-b border-slate-100">
+                          <div className="flex items-center gap-2.5">
+                            <span className="text-2xl">{r.emoji}</span>
+                            <div>
+                              <div className="font-bold text-sm text-slate-900">{r.name}</div>
+                              <div className="text-xs text-indigo-600 font-medium">担当: {formatMembers(r.members)}</div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            {!isEditingThis && (
+                              <button
+                                onClick={() => {
+                                  setEditingRoleTaskId(r.id);
+                                  setEditRoleTaskText(specificTaskText);
+                                }}
+                                className="text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded-lg font-medium flex items-center gap-1"
+                              >
+                                <Edit3 size={11} /> 役割を編集
+                              </button>
+                            )}
+                            <button
+                              onClick={() => openNewTaskModal({ projectId: project.id, roleId: r.id })}
+                              className="text-[11px] bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-lg font-medium"
+                            >
+                              + タスク追加
+                            </button>
                           </div>
                         </div>
-                        <button
-                          onClick={() => openTaskModalWithContext({ projectId: project.id, roleId: r.id })}
-                          className="text-[11px] bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-lg font-medium"
-                        >
-                          + タスク依頼
-                        </button>
-                      </div>
 
-                      <div className="text-xs font-semibold text-slate-500 mb-1.5">この役職の主な仕事・役割：</div>
-                      <ul className="space-y-1 text-xs text-slate-700 list-disc list-inside">
-                        {r.duties.map((duty, idx) => (
-                          <li key={idx}>{duty}</li>
-                        ))}
-                      </ul>
+                        <div className="text-xs font-semibold text-slate-500 mb-1.5">この行事での主な仕事：</div>
+
+                        {!isEditingThis ? (
+                          specificTaskText ? (
+                            <p className="text-xs text-slate-800 whitespace-pre-wrap leading-relaxed bg-slate-50 border border-slate-100 rounded-xl p-3">
+                              {specificTaskText}
+                            </p>
+                          ) : (
+                            <div
+                              onClick={() => {
+                                setEditingRoleTaskId(r.id);
+                                setEditRoleTaskText("");
+                              }}
+                              className="text-xs text-slate-400 border border-dashed border-slate-200 rounded-xl p-3 cursor-pointer hover:border-indigo-300 hover:text-indigo-600 transition-colors"
+                            >
+                              未記入（クリックして「{project.name}」での{r.name}の仕事を記入）
+                            </div>
+                          )
+                        ) : (
+                          <div className="space-y-2">
+                            <textarea
+                              value={editRoleTaskText}
+                              onChange={(e) => setEditRoleTaskText(e.target.value)}
+                              rows={4}
+                              placeholder={`例:\n・${project.name}の会場予約と業者連絡\n・当日の受付とスケジュール進行`}
+                              className="w-full bg-slate-50 border border-indigo-300 rounded-xl p-2.5 text-xs"
+                              autoFocus
+                            />
+                            <div className="flex justify-end gap-1.5">
+                              <button
+                                onClick={() => setEditingRoleTaskId(null)}
+                                className="px-2.5 py-1 text-xs text-slate-500 bg-slate-100 rounded-lg"
+                              >
+                                キャンセル
+                              </button>
+                              <button
+                                onClick={() => handleSaveRoleTaskInProject(r.id)}
+                                className="px-3 py-1 text-xs text-white bg-indigo-600 rounded-lg font-medium"
+                              >
+                                保存
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -1256,7 +1602,7 @@ export default function App() {
             <div className="flex justify-between items-center">
               <p className="text-xs text-slate-500">「{project.name}」に紐づくタスク一覧です。ここから新規タスクも作成できます。</p>
               <button
-                onClick={() => openTaskModalWithContext({ projectId: project.id })}
+                onClick={() => openNewTaskModal({ projectId: project.id })}
                 className="bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm"
               >
                 <Plus size={14} /> この行事のタスクを追加
@@ -1277,11 +1623,11 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB 3: 議事録＆ファイル添付 */}
+        {/* TAB 3: 議事録＆ファイル直接アップロード */}
         {tab === "minutes" && (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <p className="text-xs text-slate-500">会議の議事録やレジュメ・資料ファイルを残せます。</p>
+              <p className="text-xs text-slate-500">会議の議事録やWord・PDFファイルをそのままアップロードして残せます。</p>
               {!isAddingMin && (
                 <button
                   onClick={() => setIsAddingMin(true)}
@@ -1332,7 +1678,7 @@ export default function App() {
                 </div>
 
                 <FilesAttachmentSection
-                  title="この議事録に資料ファイルを添付"
+                  title="この議事録にファイルを添付（アップロード / リンク）"
                   files={minFiles}
                   onAddFile={(f) => setMinFiles((prev) => [...prev, { ...f, id: String(Date.now()) }])}
                   onDeleteFile={(id) => setMinFiles((prev) => prev.filter((item) => item.id !== id))}
@@ -1375,11 +1721,11 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB 4: 引き継ぎ資料・感想・ファイル添付 */}
+        {/* TAB 4: 引き継ぎ資料・感想・ファイル直接アップロード */}
         {tab === "handoff" && (
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
             <FilesAttachmentSection
-              title="引き継ぎ資料ファイル（マニュアルPDF・会計シート・企画書Wordなど）"
+              title="引き継ぎ資料ファイル（端末から直接アップロードして永続保存 / リンク登録）"
               files={project.handoffFiles || []}
               onAddFile={handleAddProjFile}
               onDeleteFile={handleDeleteProjFile}
@@ -1547,12 +1893,12 @@ export default function App() {
 
         {tab === "overview" && (
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
-            <div className="flex justify-between items-center"><h3 className="text-sm font-bold">役職の概要・主な仕事</h3><button onClick={() => setIsEditingOverview(true)} className="text-xs text-indigo-600 flex items-center gap-1"><Edit3 size={12} /> 編集</button></div>
+            <div className="flex justify-between items-center"><h3 className="text-sm font-bold">役職全体の概要・年間業務</h3><button onClick={() => setIsEditingOverview(true)} className="text-xs text-indigo-600 flex items-center gap-1"><Edit3 size={12} /> 編集</button></div>
             {!isEditingOverview ? (
               <div className="space-y-4">
                 <p className="text-sm text-slate-600">{role.description}</p>
                 <div>
-                  <div className="text-xs font-semibold text-slate-500 mb-2">主な仕事リスト（プロジェクト画面にも自動表示されます）：</div>
+                  <div className="text-xs font-semibold text-slate-500 mb-2">年間を通じた主な役割：</div>
                   <ul className="list-disc list-inside space-y-1 text-sm text-slate-800">
                     {role.duties.map((d, i) => <li key={i}>{d}</li>)}
                   </ul>
@@ -1578,7 +1924,7 @@ export default function App() {
           <div className="bg-white border rounded-2xl overflow-hidden shadow-sm">
             <div className="p-4 border-b flex justify-between items-center">
               <span className="text-xs text-slate-500">{role.name}が関わるタスク</span>
-              <button onClick={() => openTaskModalWithContext({ roleId: role.id })} className="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-lg">+ タスク追加</button>
+              <button onClick={() => openNewTaskModal({ roleId: role.id })} className="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-lg">+ タスク追加</button>
             </div>
             <div className="divide-y divide-slate-100">
               {roleTasks.length === 0 ? <div className="p-8 text-center text-xs text-slate-400">タスクはありません</div> : roleTasks.map((t) => <TaskItemCard key={t.id} task={t} />)}
@@ -1645,7 +1991,7 @@ export default function App() {
               <div className="flex flex-wrap justify-between items-center gap-3 mb-6">
                 <div>
                   <h1 className="text-2xl font-semibold">プロジェクト（行事）一覧</h1>
-                  <p className="text-slate-500 text-sm">行事ごとの関係幹部・タスク・議事録・引き継ぎ資料をまとめて管理できます。</p>
+                  <p className="text-slate-500 text-sm">行事ごとの役割分担・タスク・議事録・引き継ぎファイルをまとめて管理できます。</p>
                 </div>
                 <button
                   onClick={() => setIsProjectModalOpen(true)}
@@ -1744,9 +2090,50 @@ export default function App() {
               <div className="space-y-3">
                 {projects.map((p) => (
                   <div key={p.id} onClick={() => handleNavigate("project-detail", p.id)} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm cursor-pointer hover:border-indigo-300">
-                    <div className="font-bold text-sm mb-2">{getMonthEmoji(p.month)} {p.name}</div>
+                    <div className="flex justify-between items-center mb-2">
+                      <div className="font-bold text-sm">{getMonthEmoji(p.month)} {p.name}</div>
+                      {(p.handoffFiles?.length || 0) > 0 && (
+                        <span className="text-[11px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full font-medium">
+                          📎 資料 {p.handoffFiles.length}件
+                        </span>
+                      )}
+                    </div>
                     <div className="text-xs text-slate-600">引き継ぎ: {p.handoffNotes || "未記入"}</div>
                     <div className="text-xs text-indigo-700 mt-1">感想: {p.impressions || "未記入"}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {view === "templates" && (
+            <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-5">
+              <div>
+                <h1 className="text-2xl font-semibold">運営テンプレート集</h1>
+                <p className="text-slate-500 text-sm">議事録や引き継ぎ書、全体LINEの連絡文などをワンクリックでコピーして使えます。</p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {TEMPLATES_DATA.map((tpl, idx) => (
+                  <div key={idx} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col justify-between space-y-3">
+                    <div>
+                      <div className="flex items-start justify-between gap-2 mb-1">
+                        <h3 className="font-bold text-sm text-slate-900">{tpl.title}</h3>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(tpl.content);
+                            setCopiedIdx(idx);
+                            setTimeout(() => setCopiedIdx(null), 2000);
+                          }}
+                          className="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-lg font-semibold flex items-center gap-1 flex-shrink-0"
+                        >
+                          {copiedIdx === idx ? <><Check size={12} /> コピー完了</> : <><Copy size={12} /> コピー</>}
+                        </button>
+                      </div>
+                      <p className="text-xs text-slate-500 mb-3">{tpl.desc}</p>
+                      <pre className="text-[11px] bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 whitespace-pre-wrap font-sans max-h-48 overflow-y-auto">
+                        {tpl.content}
+                      </pre>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1778,22 +2165,24 @@ export default function App() {
         </main>
       </div>
 
-      {/* ─── 新規タスク追加モーダル（行事ラベル・幹部ラベル・タイトル・詳細・期限） ─── */}
+      {/* ─── タスク追加・編集モーダル ───────────────────────────────────────── */}
       {isTaskModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs overflow-y-auto">
           <div className="bg-white rounded-3xl p-6 w-full max-w-lg shadow-xl my-8">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="font-bold text-base text-slate-900">新規タスクを追加</h3>
+              <h3 className="font-bold text-base text-slate-900">
+                {editingTaskId !== null ? "タスクを編集" : "新規タスクを追加"}
+              </h3>
               <button onClick={() => setIsTaskModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={18} /></button>
             </div>
 
-            <form onSubmit={handleAddTask} className="space-y-4">
+            <form onSubmit={handleSaveTask} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">タスクのタイトル *</label>
                 <input
                   type="text"
-                  value={newTaskTitle}
-                  onChange={(e) => setNewTaskTitle(e.target.value)}
+                  value={taskTitle}
+                  onChange={(e) => setTaskTitle(e.target.value)}
                   placeholder="例: 会場の仮予約を完了させる"
                   className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm"
                   required
@@ -1804,8 +2193,8 @@ export default function App() {
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">タスクの詳細・内容メモ</label>
                 <textarea
-                  value={newTaskDesc}
-                  onChange={(e) => setNewTaskDesc(e.target.value)}
+                  value={taskDesc}
+                  onChange={(e) => setTaskDesc(e.target.value)}
                   rows={3}
                   placeholder="具体的な手順、連絡先、注意点などの詳細を入力"
                   className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-sm"
@@ -1816,8 +2205,8 @@ export default function App() {
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">📅 行事（プロジェクト）ラベル</label>
                   <select
-                    value={newTaskProject}
-                    onChange={(e) => setNewTaskProject(e.target.value)}
+                    value={taskProject}
+                    onChange={(e) => setTaskProject(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm"
                   >
                     <option value="">サークル共通（行事指定なし）</option>
@@ -1831,8 +2220,8 @@ export default function App() {
                   <label className="block text-xs font-semibold text-slate-700 mb-1">⏰ いつまでの期限か *</label>
                   <input
                     type="date"
-                    value={newTaskDeadline}
-                    onChange={(e) => setNewTaskDeadline(e.target.value)}
+                    value={taskDeadline}
+                    onChange={(e) => setTaskDeadline(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm"
                     required
                   />
@@ -1843,12 +2232,12 @@ export default function App() {
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">👥 関係幹部ラベル（複数選択可）</label>
                 <div className="flex flex-wrap gap-1.5">
                   {roles.map((r) => {
-                    const selected = newTaskRoles.includes(r.id);
+                    const selected = taskRoles.includes(r.id);
                     return (
                       <button
                         key={r.id}
                         type="button"
-                        onClick={() => toggleRoleSelection(r.id, newTaskRoles, setNewTaskRoles)}
+                        onClick={() => toggleRoleSelection(r.id, taskRoles, setTaskRoles)}
                         className={`px-2.5 py-1.5 rounded-xl text-xs font-medium border transition-colors ${selected ? "bg-indigo-600 text-white border-indigo-600" : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
                           }`}
                       >
@@ -1859,20 +2248,37 @@ export default function App() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">担当者名（任意）</label>
-                <input
-                  type="text"
-                  value={newTaskAssignee}
-                  onChange={(e) => setNewTaskAssignee(e.target.value)}
-                  placeholder="例: 山田 太郎（未入力なら「未定」）"
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">担当者名（任意）</label>
+                  <input
+                    type="text"
+                    value={taskAssignee}
+                    onChange={(e) => setTaskAssignee(e.target.value)}
+                    placeholder="例: 山田 太郎"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">進捗ステータス</label>
+                  <select
+                    value={taskStatus}
+                    onChange={(e) => setTaskStatus(e.target.value as TaskStatus)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm"
+                  >
+                    <option value="todo">未着手</option>
+                    <option value="in-progress">進行中</option>
+                    <option value="completed">完了</option>
+                    <option value="overdue">期限超過</option>
+                  </select>
+                </div>
               </div>
 
               <div className="flex justify-end gap-2 pt-2">
                 <button type="button" onClick={() => setIsTaskModalOpen(false)} className="px-4 py-2 text-sm text-slate-600 bg-slate-100 rounded-xl">キャンセル</button>
-                <button type="submit" className="px-5 py-2 text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-sm">タスクを追加</button>
+                <button type="submit" className="px-5 py-2 text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-sm">
+                  {editingTaskId !== null ? "変更を保存" : "タスクを追加"}
+                </button>
               </div>
             </form>
           </div>
